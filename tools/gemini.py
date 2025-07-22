@@ -3,11 +3,13 @@ import requests
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-
+from tools.local import call_local
 load_dotenv()
 
 
-def call_ai(prompt):
+def call_ai(prompt: str, LOCAL: bool):
+    if(LOCAL):
+        return call_local(prompt)
     try:
         client = genai.Client()
         response = client.models.generate_content(

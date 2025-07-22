@@ -6,7 +6,10 @@ import json
 # emailove s .eml ekstenzijom treba staviti u folder emails
 # .env datoteka sa GEMINI_API_KEY mora bit u project rootu. U buducnosti zamjeniti gemini s lokalnim api-jem kada se osposobi server.
 
-if not os.path.exists('.env') or 'GEMINI_API_KEY' not in os.environ:
+#varijabla koja određuje hoće li se koristiti lokalni model ili Gemini API
+LOCAL = True
+
+if not LOCAL and (not os.path.exists('.env') or 'GEMINI_API_KEY' not in os.environ):
     print("GEMINI_API_KEY environment variable is not set.")
     exit(1)
 
@@ -26,7 +29,8 @@ for filename in sorted(os.listdir(folder_path)):
                 AKO email sadrži samo odgovor, dodajte pitanje koje je implicirano punim odgovorom, nemojte preskakati informacije.
                 Email:
                 {email_content}
-                """
+                """,
+                LOCAL
             )
             try:
                 text = response.candidates[0].content.parts[0].text

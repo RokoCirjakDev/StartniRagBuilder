@@ -1,3 +1,4 @@
 emails/*
 .env
 !emails/.gitkeep
+tools/__pycache__/
