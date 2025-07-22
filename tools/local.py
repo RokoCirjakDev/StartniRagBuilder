@@ -1,6 +1,7 @@
 import requests
 import os
-
+import re
+import json
 
 def call_local(prompt: str):
     url = "http://51.0.0.98:11434/api/chat"
@@ -25,3 +26,10 @@ def call_local(prompt: str):
     except requests.exceptions.RequestException as e:
         print(f"Problem s lokalnim API-jem: {e}")
         return None
+
+def parse_local(response: json):
+                stringresponse = response['message']['content']
+                print("RADIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
+                stringresponse = re.sub(r"<think>.*?</think>", "", stringresponse, flags=re.DOTALL).strip()
+                print("RADIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
+                return stringresponse

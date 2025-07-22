@@ -1,5 +1,6 @@
 from tools.gemini import call_ai
 from tools.scraper import scrape_email
+from tools.local import parse_local
 import os
 import json
 
@@ -33,8 +34,15 @@ for filename in sorted(os.listdir(folder_path)):
                 LOCAL
             )
             try:
-                text = response.candidates[0].content.parts[0].text
+                
+                if LOCAL:
+                    print("Lokalni model aktiviran, bez brige.")
+                    text = parse_local(response)
+                else:
+                    text = response.candidates[0].content.parts[0].text
+
                 data = json.loads(text)
+
                 if isinstance(data, dict):
                     if "error" in data and data["error"] == 0:
                         print(f"{filename}: Nema pitanja ili odgovora.")
@@ -48,4 +56,4 @@ for filename in sorted(os.listdir(folder_path)):
                 else:
                     print(f"{filename}: Response nije JSON.", data)
             except Exception as e:
-                print(f"{filename}: Greska sa dict parsingom: {response}")
+                print(f"{filename}: Greska sa dict parsingom - {e}")
