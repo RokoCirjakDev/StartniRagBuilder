@@ -31,3 +31,20 @@ def parse_local(response: json):
                 stringresponse = response['message']['content']
                 stringresponse = re.sub(r"<think>.*?</think>", "", stringresponse, flags=re.DOTALL).strip()
                 return stringresponse
+
+def get_embedding(text: str):
+    url = "http://51.0.0.98:11434/api/embeddings"  # NOT /api/embed/...
+    headers = {
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "dengcao/Qwen3-Embedding-8B:Q4_K_M",
+        "prompt": text
+    }
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+        return response.json()['embedding']
+    except requests.exceptions.RequestException as e:
+        print(f"Problem with local embedding API: {e}")
+        return None

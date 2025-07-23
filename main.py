@@ -1,59 +1,46 @@
-from tools.gemini import call_ai
-from tools.scraper import scrape_email
-from tools.local import parse_local
+from tools.local import get_embedding
+from tools.oracle_local import add_to_database
+from tools.email_parse import get_email_data
+from tools.csv_parse import get_ode_data
 import os
 import json
+import pandas as pd
 
 # emailove s .eml ekstenzijom treba staviti u folder emails
 # .env datoteka sa GEMINI_API_KEY mora bit u project rootu. U buducnosti zamjeniti gemini s lokalnim api-jem kada se osposobi server.
 
-#varijabla koja određuje hoće li se koristiti lokalni model ili Gemini API
-LOCAL = True
+
+LOCAL = True # LOCAL -> varijabla koja određuje hoće li se koristiti lokalni model ili Gemini API
+UKLJUCI_CSV = True  # Ako je True, koristi se CSV datoteka za ODE podatke
+UKLJUCI_EMAIL =  True # Ako je True, koristi se email folder za parsanje emailova
+
+if not (UKLJUCI_CSV or UKLJUCI_EMAIL):
+    print("Nije odabrano parsanje emailova ili CSV datoteke. Odaberite barem jednu opciju.")
+    exit(1)
+
 
 if not LOCAL and (not os.path.exists('.env') or 'GEMINI_API_KEY' not in os.environ):
     print("GEMINI_API_KEY environment variable is not set.")
     exit(1)
+else :
+    print("Lokalni model.")
 
-folder_path = 'emails' 
+folder_path_email = 'emails' 
+parovi = []
 
-for filename in sorted(os.listdir(folder_path)):
-    if filename.endswith('.eml'):
-        file_path = os.path.join(folder_path, filename)
-        email_content = scrape_email(file_path)
-        if email_content:
-            response = call_ai(
-                f"""Vi ste stručni chatbot za korisničku podršku.
-                Na temelju sljedećeg emaila u običnom tekstu, izdvojite potpuno pitanje i odgovor naše podrške.
-                Vratite odgovor u JSON formatu s dva polja: "question" (pitanje) i "answer" (odgovor).
-                Ako email ne sadrži pitanje, predstavlja zahtjev ili ga chatbot ne može riješiti, vratite JSON objekt s poljem "error" i vrijednošću 0.
-                BEZ markdown formatiranja, samo običan tekst.
-                AKO email sadrži samo odgovor, dodajte pitanje koje je implicirano punim odgovorom, nemojte preskakati informacije.
-                Email:
-                {email_content}
-                """,
-                LOCAL
-            )
-            try:
-                
-                if LOCAL:
-                    print("Lokalni model aktiviran, bez brige.")
-                    text = parse_local(response)
-                else:
-                    text = response.candidates[0].content.parts[0].text
+if UKLJUCI_EMAIL:
+    parovi.append(get_email_data(folder_path_email , LOCAL))
+    for par in parovi:
+        par['APLIKACIJA'] = None
+if UKLJUCI_CSV:
+    parovi.append(get_ode_data('cvs-ode/ode.txt', LOCAL)) 
 
-                data = json.loads(text)
+p = pd.DataFrame(parovi)
+p['question_embedding'] = p['question'].apply(get_embedding)
+p.to_csv('kompilirani_csv/parovi.csv', index=False)
 
-                if isinstance(data, dict):
-                    if "error" in data and data["error"] == 0:
-                        print(f"{filename}: Nema pitanja ili odgovora.")
-                    elif "question" in data and "answer" in data:
-                        # Daljnja logika za slanje para pitanja i odgovora u oracle db ide ovdje.
-                        print(f"{folder_path}/{filename}:")
-                        print("Question:", data["question"])
-                        print("Answer:", data["answer"])
-                    else:
-                        print(f"{filename}: Kriva JSON struktura.", data)
-                else:
-                    print(f"{filename}: Response nije JSON.", data)
-            except Exception as e:
-                print(f"{filename}: Greska sa dict parsingom - {e}")
+print("Parovi su spremljeni u cvs/parovi.csv, poslati u bazu? (y/n): ", end="")
+if input().strip().lower() == 'y':
+    add_to_database(p)
+else:
+    print("Parovi nisu poslani u bazu podataka.")

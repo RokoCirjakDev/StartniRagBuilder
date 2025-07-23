@@ -3,3 +3,4 @@ python-dotenv
 requests
 mail-parser
 beautifulsoup4
+pandas

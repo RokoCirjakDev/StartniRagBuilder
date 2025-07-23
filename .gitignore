@@ -2,3 +2,7 @@ emails/*
 .env
 !emails/.gitkeep
 tools/__pycache__/
+slanje/*.cvs
+!slanje/.gitkeep
+cvs-ode/*.cvs
+!cvs-ode/.gitkeep
