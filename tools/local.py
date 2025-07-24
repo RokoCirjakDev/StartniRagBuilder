@@ -2,12 +2,16 @@ import requests
 import os
 import re
 import json
-
+from config import config
 def call_local(prompt: str):
     url = "http://51.0.0.98:11434/api/chat"
     headers = {
         "Content-Type": "application/json"
     }
+
+    if config["FAST_MODE"]:
+        prompt = prompt + "/no_think"
+    
     data = {
         "model": "qwen3:14b",
         "messages": [

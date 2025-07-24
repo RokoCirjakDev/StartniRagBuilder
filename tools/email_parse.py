@@ -1,35 +1,51 @@
 from tools.gemini import call_ai
-from tools.scraper import scrape_email
 from tools.local import parse_local
 import os
 import json
+import extract_msg
+from bs4 import BeautifulSoup
+
+def scrape_email(file_path):
+    msg = extract_msg.Message(file_path)
+    body = msg.body
+    html_body = msg.htmlBody
+
+    if body:
+        lines = [line for line in body.splitlines() if line.strip()]
+        return '\n'.join(lines)
+    elif html_body:
+        soup = BeautifulSoup(html_body, 'html.parser')
+        text = soup.get_text(separator='\n')
+        lines = [line for line in text.splitlines() if line.strip()]
+        return '\n'.join(lines)
+    return ''
 
 
-
-def get_email_data(folder_path: str, LOCAL: bool):
+def get_email_data(folder_path: str, LOCAL: bool, PITAJ_APLIKACIJU_EMAIL: bool):
     parovi = []
     
     for filename in sorted(os.listdir(folder_path)):
-     if filename.endswith('.eml'):
+     if filename.endswith('.msg'):
         file_path = os.path.join(folder_path, filename)
         email_content = scrape_email(file_path)
         if email_content:
             prompt = f"""
-            Vi ste stručni chatbot za korisničku podršku.
+            Vi ste specijalizirani chatbot za korisničku podršku financijskog softvera.
 
-            Na temelju sljedećeg emaila u običnom tekstu:
-            - Izdvojite jedno općenito često postavljano pitanje (FAQ) i pripadajući odgovor naše podrške.
-            - Vratite rezultat u JSON formatu s dva polja:
-            "question" (pitanje) i "answer" (odgovor).
+            Na temelju sadržaja sljedećeg emaila (u običnom tekstu):
+            - Izdvojite isključivo jedno opće, često postavljano pitanje (FAQ) i univerzalan odgovor koji je primjenjiv na sve korisnike.
+            - Vratite isključivo JSON objekt s dva polja:
+            - "question": jasno, opće i univerzalno formulirano pitanje, bez osobnih podataka, korisničkih imena, konkretnih tvrtki ili dokumenata
+            - "answer": standardizirani odgovor koji se temelji na pravilima i funkcijama softvera, bez izmišljanja sadržaja ili referenci na specifične korisnike ili slučajeve
 
-            Ako email ne sadrži jasno pitanje, predstavlja zahtjev ili ga chatbot ne može riješiti, vratite JSON objekt:
-            {{"error": 0}}
+            Stroge upute:
+            - Ako email sadrži osobne podatke, konkretne slučajeve, interne izraze ili zahtjeve koji nisu općeniti, odmah vratite JSON objekt: {{"error": 0}}
+            - Ako sadržaj nije prikladan za formiranje općeg FAQ pitanja koje bi se moglo prikazivati svim korisnicima, vratite: {{"error": 0}}
+            - Ne izmišljajte interne dokumente, podatke ili procese koji nisu jasno navedeni u tekstu i univerzalno točni.
+            - Ako je sadržaj emaila samo odgovor, možete formulirati implicirano FAQ pitanje, ali samo ako je odgovor smislen i važi za sve korisnike.
+            - Ne koristite nikakvo dodatno formatiranje (npr. markdown, bullet points, stilizaciju). Vratite isključivo čisti JSON tekst.
 
-            Vratite isključivo običan tekst u JSON formatu, bez ikakvog markdown ili drugog formatiranja.
-
-            Ako email sadrži samo odgovor, formulirajte implicitno FAQ pitanje koje odgovara tom odgovoru, pritom nemojte izostavljati važne informacije.
-
-            Email:
+            Email sadržaj:
             {email_content}
             """
             response = call_ai(prompt, LOCAL)
@@ -48,7 +64,17 @@ def get_email_data(folder_path: str, LOCAL: bool):
                     elif "question" in data and "answer" in data:
                         print("Question:", data["question"])
                         print("Answer:", data["answer"])
-                        parovi.append({'question': data["question"], 'answer': data["answer"]})
+
+                        if PITAJ_APLIKACIJU_EMAIL:
+                            APLIKACIJA = input(f"Na koju aplikaciju se odnosi ovaj par?")
+                        else:
+                            APLIKACIJA = None
+
+                        parovi.append({
+                            'question': data["question"],
+                            'answer': data["answer"],
+                            'APLIKACIJA': APLIKACIJA
+                        })
 
                     else:
                         print(f"{filename}: Kriva JSON struktura.", data)

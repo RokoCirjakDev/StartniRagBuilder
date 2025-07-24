@@ -1,46 +1,38 @@
 from tools.local import get_embedding
 from tools.oracle_local import add_to_database
 from tools.email_parse import get_email_data
-from tools.csv_parse import get_ode_data
+from tools.csv_parse import get_oder_data
+from tools.doc_parse import get_doc_data
+from tools.sigurnost import provjeri_sigurnost
 import os
 import json
 import pandas as pd
 
-# emailove s .eml ekstenzijom treba staviti u folder emails
-# .env datoteka sa GEMINI_API_KEY mora bit u project rootu. U buducnosti zamjeniti gemini s lokalnim api-jem kada se osposobi server.
+from config import config
 
+provjeri_sigurnost(config)
 
-LOCAL = True # LOCAL -> varijabla koja određuje hoće li se koristiti lokalni model ili Gemini API
-UKLJUCI_CSV = True  # Ako je True, koristi se CSV datoteka za ODE podatke
-UKLJUCI_EMAIL =  True # Ako je True, koristi se email folder za parsanje emailova
-
-if not (UKLJUCI_CSV or UKLJUCI_EMAIL):
-    print("Nije odabrano parsanje emailova ili CSV datoteke. Odaberite barem jednu opciju.")
-    exit(1)
-
-
-if not LOCAL and (not os.path.exists('.env') or 'GEMINI_API_KEY' not in os.environ):
-    print("GEMINI_API_KEY environment variable is not set.")
-    exit(1)
-else :
-    print("Lokalni model.")
-
-folder_path_email = 'emails' 
 parovi = []
 
-if UKLJUCI_EMAIL:
-    parovi.append(get_email_data(folder_path_email , LOCAL))
-    for par in parovi:
-        par['APLIKACIJA'] = None
-if UKLJUCI_CSV:
-    parovi.append(get_ode_data('cvs-ode/ode.txt', LOCAL)) 
+if config["UKLJUCI_EMAIL"]:
+    print("Parsanje emailova...")  
+    parovi.extend(get_email_data('unos/emails', config["LOCAL"], config["PITAJ_APLIKACIJU_EMAIL"]))
+    
+if config["UKLJUCI_DOC"]:
+    print("Parsanje dokumenata...")
+    parovi.extend(get_doc_data('unos/dokumentacija', config["LOCAL"], config["PITAJ_APLIKACIJU_DOC"]))
+
+if config["UKLJUCI_CSV"]:
+    print("Parsanje ODER podataka iz CSV datoteke...")
+    parovi.extend(get_oder_data('unos/cvs-ode/ode.txt', config["LOCAL"])) 
 
 p = pd.DataFrame(parovi)
-p['question_embedding'] = p['question'].apply(get_embedding)
-p.to_csv('kompilirani_csv/parovi.csv', index=False)
 
-print("Parovi su spremljeni u cvs/parovi.csv, poslati u bazu? (y/n): ", end="")
+p.index.name = "id"
+p.to_csv('izlaz/kompilirani_csv/baza.csv', index=True)
+
+print("Parovi su spremljeni u izlaz/kompilirani_cvs/parovi.csv, moguca je rucna promjena rezultata. poslati u bazu? (y/n): ", end="")
 if input().strip().lower() == 'y':
-    add_to_database(p)
+    add_to_database()
 else:
     print("Parovi nisu poslani u bazu podataka.")

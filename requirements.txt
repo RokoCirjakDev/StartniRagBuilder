@@ -1,6 +1,9 @@
 google-genai
 python-dotenv
 requests
-mail-parser
+extract-msg
+pymupdf
+python-docx
 beautifulsoup4
 pandas
+oracledb

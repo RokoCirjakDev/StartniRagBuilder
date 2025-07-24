@@ -1,8 +1,9 @@
-emails/*
-.env
-!emails/.gitkeep
+unos/*
+!unos/**/.gitkeep
+
+izlaz/*
+!izlaz/**/.gitkeep
+
 tools/__pycache__/
-slanje/*.cvs
-!slanje/.gitkeep
-cvs-ode/*.cvs
-!cvs-ode/.gitkeep
+
+.env

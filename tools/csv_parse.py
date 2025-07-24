@@ -5,53 +5,54 @@ import json
 import os
 
 def call_ai_ode(opis: str, primjedba: str, LOCAL: bool):
-   prompt = f"""
-    Vi ste stručni chatbot za korisničku podršku.
+    prompt = f"""
+    Vi ste specijalizirani chatbot za korisničku podršku financijskog softvera.
 
     Na temelju donesenog opisa i primjedbe:
-    1. Izdvojite općenito često postavljano pitanje (FAQ) i pripadajući odgovor naše podrške.
-    2. Vratite rezultat isključivo u JSON formatu s dva polja:
-    - "question": tekst pitanja
-    - "answer": tekst odgovora
+    1. Izdvojite isključivo opće, ponavljajuće korisničko pitanje (FAQ) i odgovarajući odgovor koji vrijedi za sve korisnike sustava.
+    2. Vratite rezultat isključivo u JSON formatu s točno dva polja:
+    - "question": općenito, jasno i univerzalno formulirano pitanje bez osobnih imena, specifičnih korisnika ili dokumenata
+    - "answer": standardizirani odgovor bez referenci na korisnike, osobne primjere, interne dokumente ili nestandardne procese
 
-    Upute:
-    - Ako opis ne sadrži jasno pitanje ili primjedba ne sadrži valjani odgovor, vratite JSON objekt: {{"error": 0}}
-    - Nemojte koristiti nikakvo markdown ili drugo formatiranje, vratite samo čist JSON tekst.
-    - Ako opis sadrži samo odgovor, formulirajte implicitno pitanje koje odgovara tom odgovoru, pod uvjetom da je odgovor smislen i općenit.
-    - Ne preskačite važne informacije u odgovoru.
+    Stroge upute:
+    - Ako opis i/ili primjedba sadrže osobne podatke, imena korisnika, konkretne interne slučajeve ili nestandardne probleme — odmah vratite: {{"error": 0}}
+    - Ako opis ili primjedba ne sadrže dovoljno informacija za formiranje općeg FAQ-a, također vratite: {{"error": 0}}
+    - Ne izmišljajte dokumente, procese, imena, ni bilo kakve informacije koje nisu univerzalno točne.
+    - Ako je primjedba samo odgovor, pokušajte formirati implicirano, opće pitanje, ali samo ako je jasno i primjenjivo na sve korisnike.
+    - Ne koristite nikakav markdown, formatiranje ili dodatni tekst. Vratite isključivo čisti JSON.
 
     Ulazni podaci:
     Opis: {opis}
     Primjedba: {primjedba}
     """
     
-   response = call_ai(prompt, LOCAL)
-   try:
-       if LOCAL:
-           text = parse_local(response)
-       else:
-           if not response.candidates or not response.candidates[0].content.parts:
-               print("No candidates or content parts found in the response.")
-               exit(1)
-           else:
-               text = response.candidates[0].content.parts[0].text
+    response = call_ai(prompt, LOCAL)
+    try:
+        if LOCAL:
+            text = parse_local(response)
+        else:
+            if not response.candidates or not response.candidates[0].content.parts:
+                print("No candidates or content parts found in the response.")
+                exit(1)
+            else:
+                text = response.candidates[0].content.parts[0].text
 
-       data = json.loads(text)
+        data = json.loads(text)
 
-       if "error" in data and data["error"] == 0:
-              print("Nema pitanja ili odgovora.")
-              return None, None
-    
-       print("Parsed data:", data)
-       return data["question"], data["answer"]
-   except Exception as e:
-       print(f"Greska sa dict parsingom - {e}")
-       exit(1)
-
-
+        if "error" in data and data["error"] == 0:
+                print("Nema pitanja ili odgovora.")
+                return None, None
+        
+        print("Parsed data:", data)
+        return data["question"], data["answer"]
+    except Exception as e:
+        print(f"Greska sa dict parsingom - {e}")
+        exit(1)
 
 
-def get_ode_data(filepath:str, LOCAL:bool):
+
+
+def get_oder_data(filepath:str, LOCAL:bool):
     print(f"Učitavanje ODE podataka iz {filepath}...")
     if not os.path.exists(filepath):
         print(f"Datoteka {filepath} ne postoji.")
@@ -66,9 +67,9 @@ def get_ode_data(filepath:str, LOCAL:bool):
             print(f"Beskoristan redak. Preskakanje...")
             continue
         result.append({
-            'APLIKACIJA': row['APLIKACIJA'],
             'question': question,
-            'answer': answer
+            'answer': answer,
+            'APLIKACIJA': row['APLIKACIJA']
         })
 
     return result
