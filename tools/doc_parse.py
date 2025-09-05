@@ -11,22 +11,24 @@ def call_ai_docx(heading: str, text: str, LOCAL: bool):
     Vi ste specijalizirani chatbot za korisničku podršku financijskog softvera.
 
     Na temelju sljedeće sekcije dokumentacije:
-    - Izdvojite isključivo jedno opće, često postavljano pitanje (FAQ) i univerzalno primjenjiv odgovor koji odgovara funkcionalnostima opisanima u tekstu.
-    - Vratite isključivo JSON objekt s točno dva polja:
-    - "question": jasno, općenito i korisnicima razumljivo pitanje koje bi mogli postaviti o toj funkcionalnosti
-    - "answer": standardizirani, informativan odgovor bez referenci na korisnike, konkretne firme, primjere iz stvarne prakse, osobna imena ili dokumente koji nisu eksplicitno navedeni
+    1. Identificirajte jednu funkcionalnost koja je opisana jasno i univerzalno.
+    2. Na temelju te funkcionalnosti, formulirajte jedno opće, često postavljano korisničko pitanje (FAQ) i pripadajući univerzalni odgovor koji vrijedi za sve korisnike.
+
+    Vratite isključivo JSON objekt s točno dva polja:
+    - "pitanje": jasno, kratko i opće korisničko pitanje koje bi korisnici mogli postaviti kako bi razumjeli tu funkcionalnost (npr. "Kako mogu izvesti izvještaj o plaćanjima?")
+    - "odgovor": standardizirani odgovor koji informira korisnika o toj funkcionalnosti, bez korištenja konkretnih primjera, korisničkih imena, organizacija, dokumenata ili procesa koji nisu eksplicitno navedeni
 
     Stroge upute:
-    - Ako tekst ne sadrži dovoljno informacija za jasno i univerzalno pitanje/odgovor, odmah vratite: {{"error": 0}}
-    - Ne izmišljajte funkcionalnosti, module, interne procese, datoteke, imena ili korisničke uloge koje nisu eksplicitno spomenute u tekstu.
-    - Ako tekst sadrži samo informaciju (bez pitanja), formulirajte prikladno i opće FAQ pitanje koje odgovara toj informaciji, ali samo ako je jasno i primjenjivo na sve korisnike.
-    - Ne koristite nikakvo dodatno formatiranje, markdown, bullet points ni stilizaciju. Vratite isključivo čisti JSON bez ikakvih dodataka.
+    - Ako sadržaj nije dovoljan za kreiranje općeg FAQ pitanja i odgovora — odmah vrati: {{"error": 0}}
+    - Ne izmišljaj funkcionalnosti, imena datoteka, korisničke uloge ili interne procese koji nisu eksplicitno spomenuti.
+    - Ako tekst samo objašnjava funkcionalnost bez pitanja, formuliraj prikladno i univerzalno korisničko pitanje koje bi to moglo objasniti, ali samo ako je dovoljno jasno.
+    - Ne koristi nikakvo dodatno formatiranje, markdown, bullet points, niti komentare. Vrati isključivo čisti JSON.
 
     Ulazni sadržaj dokumentacije:
     Heading: {heading}
     Text: {text}
     """
-    
+
     response = call_ai(prompt, LOCAL)
     try:
         if LOCAL:
@@ -38,11 +40,11 @@ def call_ai_docx(heading: str, text: str, LOCAL: bool):
 
         if "error" in data and data["error"] == 0:
             print("Nema pitanja ili odgovora.")
-            return {"question": None, "answer": None}
+            return {"pitanje": None, "odgovor": None}
 
         print("Parsed data:", data)
 
-        return {"question": data["question"], "answer": data["answer"]}
+        return {"pitanje": data["pitanje"], "odgovor": data["odgovor"]}
     
     except Exception as e:
         print(f"Greska sa dict parsingom - {e}")
@@ -98,11 +100,12 @@ def get_doc_data(directory: str, LOCAL: bool, PITAJ_APLIKACIJU_DOC: bool):
             for heading, text in sections:
                 if text.strip():
                     data = call_ai_docx(heading, text, LOCAL)
-                    if data["question"] and data["answer"]:
+                    if data["pitanje"] and data["odgovor"]:
                         parovi.append({
-                            'question': data["question"],
-                            'answer': data["answer"],
-                            'APLIKACIJA': APLIKACIJA
+                            'pitanje': data["pitanje"],
+                            'odgovor': data["odgovor"],
+                            'aplikacija': APLIKACIJA,
+                            'kontekst': heading + " " + text
                         })
                     else:
                         print(f"Preskakanje sekcije '{heading}' u dokumentu {file} jer nije pronađeno pitanje ili odgovor.")
@@ -117,4 +120,35 @@ def get_doc_data(directory: str, LOCAL: bool, PITAJ_APLIKACIJU_DOC: bool):
             continue
     
     return parovi
+
+def get_doc_data_with_app_id(directory: str, LOCAL: bool, app_id: str):
+    parovi = []
+
+    for file in os.listdir(directory):
+        if file.endswith(".docx"):
+            sections = get_sections(os.path.join(directory, file))
+
+            for heading, text in sections:
+                if text.strip():
+                    data = call_ai_docx(heading, text, LOCAL)
+                    if data["pitanje"] and data["odgovor"]:
+                        parovi.append({
+                            'pitanje': data["pitanje"],
+                            'odgovor': data["odgovor"],
+                            'aplikacija': app_id,
+                            'kontekst': heading + " " + text
+                        })
+                    else:
+                        print(f"Preskakanje sekcije '{heading}' u dokumentu {file} jer nije pronađeno pitanje ili odgovor.")
+                        continue
+
+        elif file.endswith(".pdf"):
+            doc = fitz.open(file)
+            text = "\n".join([page.get_text() for page in doc])
+            # PDF handling can be added here if needed
+
+        else:
+            print(f"Unsupported file type: {file}")
+            continue
     
+    return parovi

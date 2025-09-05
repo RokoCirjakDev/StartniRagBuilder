@@ -6,6 +6,7 @@ from tools.doc_parse import get_doc_data_with_app_id
 import asyncio
 from .collector import move_file_to_collector
 from frontend.applist import apps
+from frontend.set_message import settimeoutmessage, setloading
 
 df = pd.DataFrame(columns=["pitanje", "odgovor", "kontekst", "aplikacija"])
 sharing_message: bool = False
@@ -22,11 +23,19 @@ def create_docs_content(page: ft.Page):
     page.upload_dir = os.path.abspath(upload_dir)
 
     
-    def show_message(message, color=ft.Colors.GREEN):
-        print(f"Setting message: {message}")
-        message_section.controls.clear()
-        message_section.controls.append(ft.Text(message, color=color))
-        page.update()
+    # Poruke sekcija
+    message_section = ft.Column([], height=35, scroll="auto",) 
+    def show_message(message:str, color=ft.Colors.GREEN):
+        settimeoutmessage(page, message_section, message, color, timeout=3)
+
+    def show_error(message:str, color=ft.Colors.RED):
+        settimeoutmessage(page, message_section, message, color, timeout=5)
+
+    def show_loading(message:str, color=ft.Colors.BLUE):
+        setloading(page, message_section, message, color=color)
+
+    def end_loading(message:str, color=ft.Colors.GREEN):
+        settimeoutmessage(page, message_section, message, color=color, timeout=2)
 
     def on_upload_result(e: ft.FilePickerUploadEvent):
         nonlocal upload_complete
@@ -36,7 +45,7 @@ def create_docs_content(page: ft.Page):
         print(f"Error: {e.error}")
 
         if e.error:
-            show_message(f"Greška pri učitavanju datoteke {e.file_name}: {e.error}", ft.Colors.RED)
+            show_error(f"Greška pri učitavanju datoteke {e.file_name}: {e.error}", ft.Colors.RED)
             upload_complete = False
         elif e.progress == 1.0:
             import time
@@ -44,7 +53,7 @@ def create_docs_content(page: ft.Page):
             attempt = 0
 
             uploaded_file_names = [f.name for f in uploaded_files]
-
+            show_loading(f"Provjera učitavanja datoteke {e.file_name}...")
             while attempt < max_attempts:
                 time.sleep(0.5)
 
@@ -56,11 +65,12 @@ def create_docs_content(page: ft.Page):
                     print(f"Attempt {attempt + 1} - Checking {abs_upload_dir}:")
                     print(f"  Files found: {actual_files}")
 
+
                     all_uploaded = all(fname in actual_files for fname in uploaded_file_names)
                     if all_uploaded:
                         upload_complete = True
                         page.update()
-                        show_message(f"Svi dokumenti su uspješno učitani ({len(uploaded_file_names)} datoteka). Odaberite aplikaciju i kliknite 'Procesiraj'.", ft.Colors.GREEN)
+                       
                         return
                 else:
                     print(f"Directory {abs_upload_dir} does not exist")
@@ -82,12 +92,12 @@ def create_docs_content(page: ft.Page):
                                 shutil.move(src_path, dst_path)
                                 upload_complete = True
                                 page.update()
-                                show_message(f"Svi dokumenti su uspješno učitani ({len(uploaded_file_names)} datoteka). Odaberite aplikaciju i kliknite 'Procesiraj'.", ft.Colors.GREEN)
+                                end_loading(f"Svi dokumenti su uspješno učitani ({len(uploaded_file_names)} datoteka). Odaberite aplikaciju i kliknite 'Procesiraj'.")
                                 return
                             except Exception as move_error:
                                 print(f"Error moving file: {move_error}")
 
-            show_message(f"Datoteka {e.file_name} nije pronađena nakon učitavanja. Molimo pokušajte ponovno.", ft.Colors.RED)
+            show_error(f"Datoteka {e.file_name} nije pronađena nakon učitavanja. Molimo pokušajte ponovno.", ft.Colors.RED)
             upload_complete = False
             page.update()
 
@@ -101,6 +111,7 @@ def create_docs_content(page: ft.Page):
             print(f"Selected files: {[f.name for f in uploaded_files]}")
 
             try:
+                show_loading(f"Učitavanje {len(uploaded_files)} datoteka...", ft.Colors.BLUE)
                 upload_list = []
                 for file_obj in uploaded_files:
                     upload_list.append(
@@ -111,10 +122,10 @@ def create_docs_content(page: ft.Page):
                     )
 
                 file_picker.upload(upload_list)
-                show_message(f"Učitavanje {len(uploaded_files)} datoteka...", ft.Colors.BLUE)
+                end_loading(f"Učitavanje {len(uploaded_files)} datoteka zavrseno...", ft.Colors.BLUE)
             except Exception as upload_error:
                 print(f"Upload error: {upload_error}")
-                show_message(f"Greška pri učitavanju: {upload_error}", ft.Colors.RED)
+                show_error(f"Greška pri učitavanju: {upload_error}", ft.Colors.RED)
                 uploaded_files = []
                 upload_complete = False
                 page.update()
@@ -122,7 +133,7 @@ def create_docs_content(page: ft.Page):
             uploaded_files = []
             upload_complete = False
             page.update()
-            show_message("Nijedna datoteka nije odabrana.", ft.Colors.RED)
+            show_error("Nijedna datoteka nije odabrana.", ft.Colors.RED)
 
     def process_documents():
         global df
@@ -132,32 +143,28 @@ def create_docs_content(page: ft.Page):
         print(f"Upload complete: {upload_complete}")
 
         if not uploaded_files:
-            show_message("Nema podataka za izvoz.", ft.Colors.RED)
+            show_error("Nema podataka za izvoz.", ft.Colors.RED)
             return
 
         if not upload_complete:
-            message_section.controls.append(
-                ft.Text("Upload fileova...", color=ft.Colors.BLUE)
-            )
             while not upload_complete:
                 print("Waiting for upload to complete...")
-            message_section.controls.clear()
-
+                show_message("Čekanje na završetak učitavanja...", ft.Colors.ORANGE)
 
 
         if not app_dropdown.value:
-            show_message("Molimo odaberite aplikaciju.", ft.Colors.RED)
+            show_error("Molimo odaberite aplikaciju.", ft.Colors.RED)
             return
 
         try:
-            show_message("Obrada dokumenata...", ft.Colors.BLUE)
+            show_loading("Obrada dokumenata...", ft.Colors.BLUE)
 
             
             print(f"Processing documents from: {os.path.abspath(upload_dir)}")
 
             from tools.doc_parse import get_doc_data_with_app_id
             
-            results = get_doc_data_with_app_id(upload_dir, True, app_dropdown.value)
+            results = get_doc_data_with_app_id(upload_dir, True, int(app_dropdown.value))
 
             for file_obj in uploaded_files:
                 src_path = os.path.join(upload_dir, file_obj.name)
@@ -172,11 +179,10 @@ def create_docs_content(page: ft.Page):
                     result['aplikacija'] = app_dropdown.value
 
                 df = pd.DataFrame(results)
-                show_message("Emailovi obrađeni. Učitavanje podataka u tablicu...", ft.Colors.GREEN)
-                show_message(f"Uspješno obrađeno {len(results)} pitanja/odgovora!", ft.Colors.GREEN)
+                end_loading("Emailovi obrađeni. Učitavanje podataka u tablicu...", ft.Colors.GREEN)
                 load_df_table()
             else:
-                show_message("Nema pronađenih pitanja/odgovora u dokumentima.", ft.Colors.ORANGE)
+                show_error("Nema pronađenih pitanja/odgovora u dokumentima.", ft.Colors.ORANGE)
 
         except Exception as e:
             show_message(f"Greška pri obrađivanju dokumenata: {e}", ft.Colors.RED)
@@ -215,7 +221,7 @@ def create_docs_content(page: ft.Page):
             page.update()
 
         except Exception as e:
-            show_message(f"Greška pri učitavanju podataka: {e}", ft.Colors.RED)
+            show_error(f"Greška pri učitavanju podataka: {e}", ft.Colors.RED)
 
     def clear_data():
         global df
@@ -247,7 +253,7 @@ def create_docs_content(page: ft.Page):
     app_dropdown = ft.Dropdown(
         label="Aplikacija",
         hint_text="Odaberite aplikaciju",
-        options=[ft.dropdown.Option(app["name"], app["name"]) for app in apps],
+        options=[ft.dropdown.Option(str(app["id"]), app["name"]) for app in apps],
         width=300,
         enable_filter=True
     )
@@ -294,7 +300,8 @@ def create_docs_content(page: ft.Page):
         ft.Divider(),
         ft.Text("Obrađeni podaci:", size=18, weight="bold"),
     ], expand=True, scroll=ft.ScrollMode.AUTO)
-
+    load_df_table()
+    page.update()
     return docs_content
 
 actual_uploads_dir = "../unos/dokumentacija"

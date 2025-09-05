@@ -4,39 +4,67 @@ from tools.gemini import call_ai
 import json
 import os
 
+import math
+
+def is_valid_row(row):
+    return (
+        pd.notna(row['APLIKACIJA']) and 
+        pd.notna(row['OPIS']) and isinstance(row['OPIS'], str) and 
+        pd.notna(row['PRIMJEDBA']) and isinstance(row['PRIMJEDBA'], str)
+    )
+
+
 def call_ai_ode(opis: str, primjedba: str, LOCAL: bool):
     prompt = f"""
     Vi ste specijalizirani chatbot za korisničku podršku financijskog softvera.
 
-    Na temelju donesenog opisa i primjedbe:
-    1. Izdvojite isključivo opće, ponavljajuće korisničko pitanje (FAQ) i odgovarajući odgovor koji vrijedi za sve korisnike sustava.
-    2. Vratite rezultat isključivo u JSON formatu s točno dva polja:
-    - "question": općenito, jasno i univerzalno formulirano pitanje bez osobnih imena, specifičnih korisnika ili dokumenata
-    - "answer": standardizirani odgovor bez referenci na korisnike, osobne primjere, interne dokumente ili nestandardne procese
+    Vaš zadatak je sljedeći:
+    1. Analizirajte opis i primjedbu korisnika.
+    2. Ako je moguće, identificirajte ponavljajuće, univerzalno korisničko pitanje koje odražava *namjeru* korisnika, bez specifičnih detalja.
+    3. Formulirajte to pitanje i standardizirani odgovor tako da ih mogu razumjeti svi korisnici, neovisno o njihovoj ulozi ili situaciji.
 
-    Stroge upute:
-    - Ako opis i/ili primjedba sadrže osobne podatke, imena korisnika, konkretne interne slučajeve ili nestandardne probleme — odmah vratite: {{"error": 0}}
-    - Ako opis ili primjedba ne sadrže dovoljno informacija za formiranje općeg FAQ-a, također vratite: {{"error": 0}}
-    - Ne izmišljajte dokumente, procese, imena, ni bilo kakve informacije koje nisu univerzalno točne.
-    - Ako je primjedba samo odgovor, pokušajte formirati implicirano, opće pitanje, ali samo ako je jasno i primjenjivo na sve korisnike.
-    - Ne koristite nikakav markdown, formatiranje ili dodatni tekst. Vratite isključivo čisti JSON.
+    Vratite rezultat isključivo u JSON formatu s točno dva polja:
+    - "pitanje": jasno, sažeto i opće korisničko pitanje koje bi moglo biti često postavljeno (npr. "Kako mogu promijeniti lozinku?")
+    - "odgovor": kratak, jasan i univerzalno primjenjiv odgovor (npr. "Lozinku možete promijeniti u postavkama računa pod sekcijom 'Sigurnost'.")
+
+    Pravila:
+    - Ako opis/primjedba sadrži osobne podatke, imena korisnika, konkretne dokumente nemojte ih uključivati u odgovor.
+    - Ako primjedba ne sadrži dovoljno informacija za formuliranje općeg FAQ pitanja — odmah vratite: {{"error": 0}}
+    - Ne izmišljajte module, datoteke, korisničke uloge ili procese koji nisu eksplicitno navedeni.
+    - Ako je primjedba zapravo odgovor ili zahtjev bez pitanja, formulirajte implicirano pitanje, ali samo ako je korisnička namjera jasno prepoznatljiva i općenita.
+    - Ne koristite nikakvo dodatno formatiranje, markdown, bullet points, niti komentare. Vratite isključivo čisti JSON.
+    - Ako podaci nisu dovoljni za formuliranje univerzalnog FAQ-a — vratite: {{"error": 0}}
+    - Ne uključujte detalje koji vrijede samo za pojedine korisnike, organizacije ili interne sustave.
+    - Ne izmišljajte funkcionalnosti ili procese koji nisu eksplicitno navedeni ili univerzalno primjenjivi.
+    - Ako je primjedba zapravo odgovor, pokušajte razumjeti *što je korisnik želio saznati*.
 
     Ulazni podaci:
     Opis: {opis}
     Primjedba: {primjedba}
     """
+
     
     response = call_ai(prompt, LOCAL)
     try:
         if LOCAL:
             text = parse_local(response)
+            if not text or text.strip() == "":
+                print("Empty response from local API")
+                return None, None
         else:
             if not response.candidates or not response.candidates[0].content.parts:
                 print("No candidates or content parts found in the response.")
-                exit(1)
+                return None, None
             else:
                 text = response.candidates[0].content.parts[0].text
+                if not text or text.strip() == "":
+                    print("Empty text from API response")
+                    return None, None
 
+        if not text or text.strip() == "":
+            print("Empty response text")
+            return None, None
+            
         data = json.loads(text)
 
         if "error" in data and data["error"] == 0:
@@ -44,10 +72,10 @@ def call_ai_ode(opis: str, primjedba: str, LOCAL: bool):
                 return None, None
         
         print("Parsed data:", data)
-        return data["question"], data["answer"]
+        return data["pitanje"], data["odgovor"]
     except Exception as e:
         print(f"Greska sa dict parsingom - {e}")
-        exit(1)
+        return None, None
 
 
 
@@ -58,18 +86,24 @@ def get_oder_data(filepath:str, LOCAL:bool):
         print(f"Datoteka {filepath} ne postoji.")
         exit(1)
     
-    ode_data = pd.read_csv(filepath, delimiter='|', encoding='utf-8', on_bad_lines='skip')
+    ode_data = pd.read_csv(filepath, delimiter='á', encoding='utf-8', 
+                 engine='python', on_bad_lines='skip', dtype={'OPIS': str, 'PRIMJEDBA': str})
+
 
     result = []
     for _, row in ode_data.iterrows():
-        question, answer = call_ai_ode(row['OPIS'], row['PRIMJEDBA'], LOCAL)
-        if question is None or answer is None:
+        if not is_valid_row(row):
+            print(f"Neispravan redak: {row}. Preskakanje...")
+            continue 
+        pitanje, odgovor = call_ai_ode(row['OPIS'], row['PRIMJEDBA'], LOCAL)
+        if pitanje is None or odgovor is None:
             print(f"Beskoristan redak. Preskakanje...")
             continue
         result.append({
-            'question': question,
-            'answer': answer,
-            'APLIKACIJA': row['APLIKACIJA']
+            "pitanje": pitanje,
+            "odgovor": odgovor,
+            "aplikacija": row['APLIKACIJA'],
+            "kontekst" : str(row['PRIMJEDBA']) + " " + str(row['OPIS'])
         })
 
     return result
