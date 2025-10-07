@@ -33,9 +33,10 @@ def TestirajUnos(pitanje: str, odgovor: str, Kontekst: str = "") -> str:
         f"Testiraj sljedeće pitanje i odgovor na hrvatskom jeziku ISKLJUČIVO u smislu profesionalnosti i profesionalnog tona i opcoj namjnenjivosti za rag sustav. "
         f"Pitanje i odgovor moraju biti više opći i razumljivi, ne smiju uključivati imena, poštapalice ili bilo što nepotrebno značenju pitanja. "
         f"Vrati rezultat isključivo kao validan JSON s poljimem 'kritika' kao preporuka kako poboljsati unos"
-        f"Kontekst na kojoj bazi je pitanje i odgovor: {Kontekst}\n"
+        f"NI SLUCAJNO NEMOJ DODAVATI IKAKAV MARKDOWN FORMATING, VRATI SAMO CISTI JSON"
         f"pitanje: {pitanje}\n"
         f"odgovor: {odgovor}\n"
+        f"Kontekst na kojoj bazi je pitanje i odgovor, njega nemoj kritizirati jer sluzi samo kao izvor: {Kontekst}\n"
         f"JSON rezultat:"
     )
 

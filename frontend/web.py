@@ -105,6 +105,7 @@ def main(page: ft.Page):
         frontend.data.df = frontend.data.df.iloc[0:0]
         ucitaj_df()
         page.close(izbrisati_dlg)
+
         show_message("Svi unosi su izbrisani.", ft.Colors.RED)
     def izmjeni_redak(index):
         import frontend.data
@@ -181,12 +182,10 @@ def main(page: ft.Page):
         frontend.data.df = frontend.data.df.drop(index).reset_index(drop=True)
         ucitaj_df()
 
-    def close_dlg(e):
-        page.close(confirm_dlg)
-        page.close(izbrisati_dlg)
+
         
     def confirm_upload(e):
-        close_dlg(e)
+        close_dlg_confirm(e)
         try:
             import frontend.data
             if not frontend.data.df.empty:
@@ -230,13 +229,22 @@ def main(page: ft.Page):
         enable_filter=True
     )
 
+    def close_dlg_izbrisati(e):
+        page.close(izbrisati_dlg)
+        page.update()
+
+    def close_dlg_confirm(e):
+        page.close(confirm_dlg)
+        page.update()
+
+
     confirm_dlg = ft.AlertDialog(
         modal=True,
         title=ft.Text("Upload u bazu"),
         content=ft.Text("Uploadat listu u bazu?"),
         actions=[
-            ft.TextButton("Da", on_click=confirm_upload),
-            ft.TextButton("Ne", on_click=close_dlg),
+            ft.TextButton("Da", on_click=lambda e: confirm_upload(e)),
+            ft.TextButton("Ne", on_click=lambda e: close_dlg_confirm(e)),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
@@ -247,16 +255,28 @@ def main(page: ft.Page):
         content=ft.Text("Jeste li sigurni da želite izbrisati sve unose?"),
         actions=[
             ft.TextButton("Da", on_click=lambda e: izbrisi_sve()),
-            ft.TextButton("Ne", on_click=lambda e: close_dlg(e)),
+            ft.TextButton("Ne", on_click=lambda e: close_dlg_izbrisati(e)),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
 
+    def show_confirm_dlg(e):
+        page.dialog = confirm_dlg
+        page.open(confirm_dlg)
+        page.update()
+
+    def show_izbrisati_dlg(e):
+        page.dialog = izbrisati_dlg
+        page.open(izbrisati_dlg)
+        page.update()
+
+
+
     Buttons = ft.Row([
         ft.ElevatedButton("Dodaj u listu", on_click=lambda e: dodajulistu(pitanjeUnos.value, odgovorUnos.value, KontekstUnos.value, int(aplikacijaUnos.value))),
         ft.ElevatedButton("AI Poboljsaj Unos", on_click=lambda e: Poboljsaj(pitanjeUnos.value, odgovorUnos.value, KontekstUnos.value, Testiraj(pitanjeUnos.value, odgovorUnos.value, KontekstUnos.value)), bgcolor=ft.Colors.ORANGE, color=ft.Colors.WHITE),
-        ft.ElevatedButton("Izbriši sve", on_click=lambda e: page.open(izbrisati_dlg), bgcolor=ft.Colors.RED, color=ft.Colors.WHITE),
-        ft.ElevatedButton("Upload u bazu", on_click=lambda e: page.open(confirm_dlg), bgcolor=ft.Colors.GREEN, color=ft.Colors.WHITE),
+        ft.ElevatedButton("Izbriši sve", on_click=lambda e: show_izbrisati_dlg(e), bgcolor=ft.Colors.RED, color=ft.Colors.WHITE),
+        ft.ElevatedButton("Upload u bazu", on_click=lambda e: show_confirm_dlg(e) , bgcolor=ft.Colors.GREEN, color=ft.Colors.WHITE),
         ft.ElevatedButton("Testiraj Unos", on_click=lambda e: testirajsadlg(pitanjeUnos.value, odgovorUnos.value, KontekstUnos.value), bgcolor=ft.Colors.BLUE, color=ft.Colors.WHITE),
     ], alignment="start", spacing=10)
 

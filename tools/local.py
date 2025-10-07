@@ -73,7 +73,7 @@ def get_embedding_safe(text: str):
         if not isinstance(raw_embedding, list):
             raise ValueError("API response 'embedding' is not a list")
 
-        if len(raw_embedding) != 1024:
+        if len(raw_embedding) != 768:
             raise ValueError(f"Expected 1024 values, got {len(raw_embedding)}")
 
         clean_embedding = []

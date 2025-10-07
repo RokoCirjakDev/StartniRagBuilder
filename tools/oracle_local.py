@@ -29,19 +29,19 @@ def add_to_database():
         embedding = row['embedding']
         stayembedding = embedding
         print("Embeding passed")
-        if not isinstance(embedding, list) or len(embedding) != 1024 or not all(isinstance(x, (float)) for x in embedding):
+        if not isinstance(embedding, list) or len(embedding) != 768 or not all(isinstance(x, (float)) for x in embedding):
             raise ValueError("Embedding must be a list of 1024 elements.")
 
         embedding = array.array('d', [float(x) for x in embedding])
 
         assert isinstance(embedding, array.array), f"embedding is not array.array, got {type(embedding)}"
         assert embedding.typecode == 'd', f"embedding typecode must be 'd', got {embedding.typecode}"
-        assert len(embedding) == 1024, f"embedding must be length 1024, got {len(embedding)}"
+        assert len(embedding) == 768, f"embedding must be length 1024, got {len(embedding)}"
         
        
         try:
             cursor.execute(f"""
-            INSERT INTO system.RagTest1 (pitanje, odgovor, kontekst, aplikacija, embedding)
+            INSERT INTO skripta.RagTest1 (pitanje, odgovor, kontekst, aplikacija, embedding)
             VALUES (:pitanje, :odgovor, :kontekst, :aplikacija, :embedding)
         """, {
             "pitanje": row['pitanje'],
@@ -64,6 +64,7 @@ def add_to_database():
     connection.commit()
     cursor.close()
     connection.close()
+    print(f"Successfully uploaded {len(p)} records to database!")
 
 def send_to_database(df):
     """
@@ -91,18 +92,15 @@ def send_to_database(df):
         stayembedding = embedding
         print("Embeding passed")
         
-        if not isinstance(embedding, list) or len(embedding) != 1024 or not all(isinstance(x, (float)) for x in embedding):
+        if not isinstance(embedding, list) or len(embedding) != 768 or not all(isinstance(x, (float)) for x in embedding):
             raise ValueError("Embedding must be a list of 1024 elements.")
 
         embedding = array.array('d', [float(x) for x in embedding])
-
-        assert isinstance(embedding, array.array), f"embedding is not array.array, got {type(embedding)}"
-        assert embedding.typecode == 'd', f"embedding typecode must be 'd', got {embedding.typecode}"
-        assert len(embedding) == 1024, f"embedding must be length 1024, got {len(embedding)}"
-        
+        print("Embedding length:", len(embedding))
+            
         try:
             cursor.execute(f"""
-            INSERT INTO system.RagTest1 (pitanje, odgovor, kontekst, aplikacija, embedding)
+            INSERT INTO skripta.RagTest1 (pitanje, odgovor, kontekst, aplikacija, embedding)
             VALUES (:pitanje, :odgovor, :kontekst, :aplikacija, :embedding)
         """, {
             "pitanje": row['pitanje'],
@@ -120,6 +118,7 @@ def send_to_database(df):
             stop = input("Press Enter to continue...")
             os.system("del embeddings.txt")
             continue
+        print("Inserted row:", row['pitanje'])
 
     connection.commit()
     cursor.close()
